@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "course": {
+    "title": "Intro to AI Engineering",
+    "kind": "self",
+    "goal": "Train a tiny model, fine-tune a small one and run it in Odysseus, and build an agent with my own tool",
+    "weeklyHours": 6
+  },
+  "skills": [
+    { "id": "py-basics", "name": "Python basics", "description": "Syntax, lists, dicts, functions and classes coming from C#" },
+    { "id": "py-tooling", "name": "Python tooling", "description": "venv, pip, Jupyter notebooks" },
+    { "id": "numpy", "name": "NumPy arrays", "description": "Create, index and do maths on arrays" },
+    { "id": "llm-basics", "name": "How LLMs work", "description": "Tokens, context window, parameters, quantization" },
+    { "id": "local-models", "name": "Running local models", "description": "Run and swap models in Odysseus; know what fits the GPU" }
+  ],
+  "milestones": [
+    {
+      "id": "m1-python",
+      "title": "Week 1 · Python bridge for a C# developer",
+      "activities": [
+        {
+          "id": "py-01",
+          "title": "Set up Python, venv and Jupyter",
+          "kind": "lesson",
+          "objective": "Have a working Python environment for the course",
+          "content": "Install Python 3.12+, then in a course folder run `python -m venv .venv`, activate it (`.venv\\Scripts\\activate` on Windows) and `pip install jupyter numpy`. A virtual environment is like a per-project NuGet packages folder: each project gets its own packages. Start `jupyter notebook` and create a notebook; each cell runs Python and keeps variables between cells.",
+          "task": "Create a notebook, print your Python version with `import sys; print(sys.version)`, and import numpy.",
+          "criteria": "The notebook runs both cells without errors and shows a version 3.12 or newer.",
+          "estimatedMinutes": 45,
+          "prerequisites": [],
+          "skills": ["py-tooling"],
+          "dueAt": null
+        },
+        {
+          "id": "py-02",
+          "title": "Python vs C#: syntax tour",
+          "kind": "lesson",
+          "objective": "Read and write basic Python by mapping it to C#",
+          "content": "Indentation replaces braces. No types are required (`x = 5`), but you can add hints (`x: int = 5`). `for i in range(10):` is `for (int i = 0; i < 10; i++)`. `def add(a, b): return a + b` is a method. f-strings: `f\"Hi {name}\"` is `$\"Hi {name}\"`. `None` is `null`; `and/or/not` replace `&&/||/!`.",
+          "task": "Port this C# to Python and run it: a method that takes a list of ints and returns the largest one using a running maximum (no built-in max). Test it on [3, 9, 2], [-5, -1, -7] and [4].",
+          "criteria": "Returns 9, -1 and 4. Uses a loop with a running maximum, not max().",
+          "estimatedMinutes": 60,
+          "prerequisites": ["py-01"],
+          "skills": ["py-basics"],
+          "dueAt": null
+        },
+        {
+          "id": "py-03",
+          "title": "Lists, dicts and comprehensions",
+          "kind": "exercise",
+          "objective": "Use lists and dicts like List<T> and Dictionary<K,V>",
+          "content": "",
+          "task": "Given a sentence, build a dict of word -> count (case-insensitive), then print the 3 most common words. Do it once with a loop and once with a comprehension plus sorted().",
+          "criteria": "For 'the cat and the hat and the bat' prints the (3), and (2), then one of cat/hat/bat (1). Both versions give the same result.",
+          "estimatedMinutes": 60,
+          "prerequisites": ["py-02"],
+          "skills": ["py-basics"],
+          "dueAt": null
+        },
+        {
+          "id": "py-04",
+          "title": "Classes and files",
+          "kind": "exercise",
+          "objective": "Write a small class and read a text file",
+          "content": "",
+          "task": "Write a class Note(title, body) with a method word_count(). Read notes from a text file where each note is 'title|body' on one line, and print each title with its word count.",
+          "criteria": "Handles an empty line without crashing. Output has one line per note with the right counts.",
+          "estimatedMinutes": 60,
+          "prerequisites": ["py-03"],
+          "skills": ["py-basics"],
+          "dueAt": null
+        },
+        {
+          "id": "py-05",
+          "title": "NumPy in one hour",
+          "kind": "lesson",
+          "objective": "Create arrays and do vectorised maths, the base of PyTorch",
+          "content": "",
+          "task": "Create a 3x4 array of random numbers, compute the mean of each column, normalise each column to mean 0, and multiply it by a 4x2 matrix. Print all shapes.",
+          "criteria": "Shapes printed are (3, 4), (4,), (3, 4) and (3, 2). Column means after normalising are about 0.",
+          "estimatedMinutes": 60,
+          "prerequisites": ["py-03"],
+          "skills": ["numpy"],
+          "dueAt": null
+        },
+        {
+          "id": "py-check",
+          "title": "Check: Python on your own",
+          "kind": "check",
+          "objective": "Solve a small Python problem without help",
+          "content": "",
+          "task": "Ask the tutor for a new problem (\"New problem\") on lists, dicts and functions. Solve it without hints, explanations or worked solutions.",
+          "criteria": "Meets the expected output and test cases the problem gives.",
+          "estimatedMinutes": 30,
+          "prerequisites": ["py-04", "py-05"],
+          "skills": ["py-basics"],
+          "dueAt": null
+        }
+      ]
+    },
+    {
+      "id": "m2-llm",
+      "title": "Weeks 2-3 · How LLMs work (with Odysseus)",
+      "activities": [
+        {
+          "id": "llm-01",
+          "title": "Tokens, context window and parameters",
+          "kind": "lesson",
+          "objective": "Explain what a token, the context window and parameter count are",
+          "content": "",
+          "task": "In your own words, explain why a 7B model with a 4-bit quantization fits in about 4-5 GB of video memory, and what happens when a conversation is longer than the context window.",
+          "criteria": "Mentions bytes per parameter, quantization reducing them, and that text beyond the context window is not seen by the model.",
+          "estimatedMinutes": 60,
+          "prerequisites": ["py-check"],
+          "skills": ["llm-basics"],
+          "dueAt": null
+        },
+        {
+          "id": "llm-02",
+          "title": "Get Odysseus running",
+          "kind": "exercise",
+          "objective": "Run Odysseus locally with Docker and chat with a local model",
+          "content": "",
+          "task": "Install Docker Desktop, clone Odysseus, copy .env.example to .env, run `docker compose up -d --build`, open the interface and chat with a small model.",
+          "criteria": "You can paste a screenshot or the log line showing the interface is up, and a reply from a local model.",
+          "estimatedMinutes": 90,
+          "prerequisites": ["llm-01"],
+          "skills": ["local-models"],
+          "dueAt": null
+        },
+        {
+          "id": "llm-03",
+          "title": "Predict what fits your GPU",
+          "kind": "check",
+          "objective": "Predict whether a model will run on your laptop before trying it",
+          "content": "",
+          "task": "Find your GPU's dedicated memory. For three models of different sizes and quantizations, predict whether each will fit fully on the GPU. Then try them in Odysseus and record what happened.",
+          "criteria": "Predictions written before trying, with the reasoning, and at least two of three correct.",
+          "estimatedMinutes": 60,
+          "prerequisites": ["llm-02"],
+          "skills": ["llm-basics", "local-models"],
+          "dueAt": null
+        }
+      ]
+    }
+  ]
+}
