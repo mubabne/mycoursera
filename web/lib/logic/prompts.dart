@@ -73,6 +73,12 @@ About me and the goal
 - Equipment and tools: ${_orDash(r.equipment)}
 - Other notes: ${_orDash(r.notes)}
 
+Research first
+- Before designing, search the web for real, well-regarded courses and study guides on this topic: Coursera, edX, Khan Academy, MIT OpenCourseWare, freeCodeCamp, official documentation, and university syllabi.
+- If you cannot browse, rely on the courses you know well and only name ones you are confident actually exist.
+- Use them as a reference for the order of topics, the prerequisites, and what a complete curriculum covers. Do not invent courses or links.
+- In each activity's "content", end with a "**References**" list of 1-3 Markdown links to the specific course module, guide or doc page it draws on.
+
 Design rules
 - Split the course into milestones, and each milestone into small activities of 15-90 minutes.
 - Start with what I am missing (prerequisites) before the main topic.
@@ -138,7 +144,9 @@ String _instruction(TutorHelp help) => switch (help) {
       TutorHelp.freshProblem => 'Give me ONE new problem that tests the same objective, with the '
           'expected result or test cases so I can check myself. Do not include the solution.',
       TutorHelp.lesson => 'Write a short lesson for this activity (max ~400 words, Markdown): '
-          'the explanation, one worked example, and one practice task with how to check it.',
+          'the explanation, one worked example, and one practice task with how to check it. '
+          'Base it on real study material (Coursera, edX, Khan Academy, MIT OpenCourseWare, official docs) '
+          'and end with a "**References**" list of 1-3 links you are confident exist.',
     };
 
 /// Tutor prompt inside a lesson: includes the lesson and the current attempt.
