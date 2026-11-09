@@ -5,6 +5,7 @@ import 'config.dart';
 import 'data/repo.dart';
 import 'ui/home_shell.dart';
 import 'ui/login_page.dart';
+import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,12 +18,6 @@ Future<void> main() async {
   runApp(const MyCourseraApp());
 }
 
-ThemeData _theme(Brightness brightness) => ThemeData(
-      colorSchemeSeed: Colors.indigo,
-      brightness: brightness,
-      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
-    );
-
 class MyCourseraApp extends StatelessWidget {
   const MyCourseraApp({super.key});
 
@@ -31,8 +26,8 @@ class MyCourseraApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyCoursera',
       debugShowCheckedModeBanner: false,
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       home: const AuthGate(),
     );
   }
@@ -68,7 +63,8 @@ class _MissingConfigApp extends StatelessWidget {
               child: const Text(
                 'Supabase is not configured.\n\n'
                 '1. Copy env.example.json to env.json and fill in your project URL and anon key.\n'
-                '2. Run: flutter run -d chrome --dart-define-from-file=env.json',
+                '2. Run: flutter run --dart-define-from-file=env.json\n'
+                '   (add -d chrome for web; omit it to pick your phone/emulator).',
               ),
             ),
           ),

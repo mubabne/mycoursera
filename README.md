@@ -58,10 +58,24 @@ flutter test
 To plan a real course: **New course → Plan a course with AI**, fill in the form, copy the prompt,
 paste it into your AI, then paste its JSON reply.
 
-## Later: Android
+## Mobile (Android / iOS)
+
+The `android/` and `ios/` folders are already in the repo. Plug in your phone with
+USB debugging on (or start an emulator), then:
 
 ```
-flutter create . --platforms=android
+cd Desktop\MyCoursera\web
+flutter devices
 flutter run -d <your-phone> --dart-define-from-file=env.json
 ```
+
+To install it without a cable, build an APK and copy it to the phone:
+```
+flutter build apk --release --dart-define-from-file=env.json
+```
+The file is `build\app\outputs\flutter-apk\app-release.apk`. It's signed with the debug key, which is
+fine for your own phone but not for the Play Store.
+
+iOS needs a Mac with Xcode: `flutter run -d <iphone> --dart-define-from-file=env.json`.
+
 Same code, same Supabase data. On a phone the side rail becomes a bottom bar.

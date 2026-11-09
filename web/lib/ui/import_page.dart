@@ -4,6 +4,7 @@ import '../data/repo.dart';
 import '../logic/format.dart';
 import '../logic/plan_import.dart';
 import '../logic/prompts.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 /// Step 1 of planning with AI: describe the goal and copy the prompt.
@@ -68,18 +69,17 @@ class _PlanWizardPageState extends State<PlanWizardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Plan a course with AI')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+      body: PageList(
+        maxWidth: 720,
+        children: [
+          PanelCard(
+            title: '1 · Describe the course',
+            subtitle: 'The more specific you are, the better the plan.',
+            icon: Icons.auto_awesome_outlined,
             children: [
-              const Text('1. Tell the AI what you want. The more specific, the better the plan.'),
-              const SizedBox(height: 16),
               _field(_topic, 'What do you want to learn?',
                   hint: 'Intro to AI engineering: train a tiny model and build an agent'),
-              _field(_level, 'Your current level',
-                  hint: 'C# developer, Python only hello world, no ML yet', lines: 2),
+              _field(_level, 'Your current level', hint: 'C# developer, Python only hello world, no ML yet', lines: 2),
               _field(_outcome, 'At the end I want to be able to…',
                   hint: 'Train a tiny model, fine-tune a small one, build an agent with my own tool', lines: 2),
               _field(_hours, 'Hours per week', type: const TextInputType.numberWithOptions(decimal: true)),
@@ -89,20 +89,30 @@ class _PlanWizardPageState extends State<PlanWizardPage> {
                   hint: 'Use Odysseus as the hands-on lab; start with a 1-week Python bridge', lines: 2),
               FilledButton.icon(
                 onPressed: _copyPrompt,
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy prompt for your AI'),
-              ),
-              const SizedBox(height: 24),
-              const Text('2. Paste the prompt into Claude or ChatGPT. When it answers with JSON, copy the reply.'),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _next,
-                icon: const Icon(Icons.arrow_forward),
-                label: Text(_copied ? 'Next: paste the plan' : 'I already have the plan'),
+                icon: Icon(_copied ? Icons.check : Icons.copy),
+                label: Text(_copied ? 'Copied! Copy again' : 'Copy prompt for your AI'),
               ),
             ],
           ),
-        ),
+          PanelCard(
+            title: '2 · Get the plan',
+            subtitle: 'Paste the prompt into Claude or ChatGPT. When it answers with JSON, copy the reply.',
+            icon: Icons.content_paste_go,
+            children: [
+              (_copied
+                  ? FilledButton.tonalIcon(
+                      onPressed: _next,
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('Next: paste the plan'),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: _next,
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('I already have the plan'),
+                    )),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -170,14 +180,14 @@ class _ImportPageState extends State<ImportPage> {
     final r = _result;
     return Scaffold(
       appBar: AppBar(title: Text(widget.courseId == null ? 'Import plan' : 'Update plan')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 820),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+      body: PageList(
+        maxWidth: 820,
+        children: [
+          PanelCard(
+            title: 'Paste the plan',
+            subtitle: 'Paste the AI\'s reply. Text around the JSON and ``` fences are fine.',
+            icon: Icons.data_object,
             children: [
-              const Text('Paste the AI\'s reply. Text around the JSON and ``` fences are fine.'),
-              const SizedBox(height: 12),
               TextField(
                 controller: _json,
                 minLines: 10,
@@ -189,14 +199,15 @@ class _ImportPageState extends State<ImportPage> {
                 },
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
                     onPressed: _preview,
                     icon: const Icon(Icons.preview_outlined),
                     label: const Text('Preview'),
                   ),
-                  const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: (r?.ok ?? false) && !_busy ? _import : null,
                     icon: const Icon(Icons.download_done),
@@ -204,10 +215,10 @@ class _ImportPageState extends State<ImportPage> {
                   ),
                 ],
               ),
-              if (r != null) ..._previewWidgets(context, r),
             ],
           ),
-        ),
+          if (r != null) ..._previewWidgets(context, r),
+        ],
       ),
     );
   }
@@ -247,43 +258,75 @@ class _ImportPageState extends State<ImportPage> {
           ),
         ),
       if (plan != null) ...[
-        SectionHeader(plan.title.isEmpty ? '(untitled)' : plan.title),
-        if (plan.goal.isNotEmpty) Text('Goal: ${plan.goal}'),
-        Text(
-          '${plan.kind.label} · ${plan.milestones.length} milestones · ${plan.allActivities.length} activities · '
-          '${fmtMinutes(plan.totalMinutes)} in total · about '
-          '${(plan.totalMinutes / (plan.weeklyHours * 60)).toStringAsFixed(1)} weeks at '
-          '${fmtHours(plan.weeklyHours)} h/week',
-        ),
-        if (diff != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Changes: ${diff.added.length} new · ${diff.updated.length} updated · '
-            '${diff.archived.length} leave the plan (archived, attempts kept)',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          if (diff.archived.isNotEmpty) Text('Leaving: ${diff.archived.join(', ')}'),
-        ],
-        const SizedBox(height: 8),
-        for (final m in plan.milestones)
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text(m.title),
-            subtitle: Text('${m.activities.length} activities · '
-                '${fmtMinutes(m.activities.fold<int>(0, (s, a) => s + a.estMinutes))}'),
-            children: [
-              for (final a in m.activities)
-                ListTile(
-                  dense: true,
-                  title: Text(a.title),
-                  subtitle: Text([
-                    a.kind.label,
-                    fmtMinutes(a.estMinutes),
-                    if (a.prerequisites.isNotEmpty) 'needs ${a.prerequisites.join(', ')}',
-                    if (a.dueAt != null) 'due ${fmtDateTime(a.dueAt!.toLocal())}',
-                  ].join(' · ')),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(plan.title.isEmpty ? '(untitled)' : plan.title, style: Theme.of(context).textTheme.titleLarge),
+                if (plan.goal.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(plan.goal, style: TextStyle(color: scheme.onSurfaceVariant)),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    StatTile(value: '${plan.milestones.length}', label: 'milestones'),
+                    StatTile(value: '${plan.allActivities.length}', label: 'activities'),
+                    StatTile(value: fmtMinutes(plan.totalMinutes), label: 'in total'),
+                    StatTile(
+                      value: '~${(plan.totalMinutes / (plan.weeklyHours * 60)).toStringAsFixed(1)} wk',
+                      label: 'at ${fmtHours(plan.weeklyHours)} h/week',
+                    ),
+                  ],
                 ),
-            ],
+                if (diff != null) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      MetaPill('${diff.added.length} new', icon: Icons.add, color: const Color(0xFF059669)),
+                      MetaPill('${diff.updated.length} updated', icon: Icons.edit_outlined, color: scheme.primary),
+                      MetaPill('${diff.archived.length} leave the plan',
+                          icon: Icons.archive_outlined, color: const Color(0xFFD97706)),
+                    ],
+                  ),
+                  if (diff.archived.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Leaving (archived, attempts kept): ${diff.archived.join(', ')}',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+        for (final m in plan.milestones)
+          Card(
+            child: ExpansionTile(
+              leading: Icon(Icons.flag_outlined, color: scheme.primary),
+              title: Text(m.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text('${m.activities.length} activities · '
+                  '${fmtMinutes(m.activities.fold<int>(0, (s, a) => s + a.estMinutes))}'),
+              children: [
+                for (final a in m.activities)
+                  ListTile(
+                    dense: true,
+                    leading: Icon(kindIcon(a.kind), size: 20, color: kindColor(context, a.kind.db)),
+                    title: Text(a.title),
+                    subtitle: Text([
+                      a.kind.label,
+                      fmtMinutes(a.estMinutes),
+                      if (a.prerequisites.isNotEmpty) 'needs ${a.prerequisites.join(', ')}',
+                      if (a.dueAt != null) 'due ${fmtDateTime(a.dueAt!.toLocal())}',
+                    ].join(' · ')),
+                  ),
+              ],
+            ),
           ),
       ],
     ];

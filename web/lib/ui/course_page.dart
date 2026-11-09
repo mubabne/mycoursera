@@ -8,6 +8,7 @@ import '../logic/rules.dart';
 import '../models.dart';
 import 'import_page.dart';
 import 'session_page.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class _CourseData {
@@ -279,30 +280,77 @@ class _CoursePageState extends State<CoursePage> {
     final thisWeekMinutes = est.thisWeek.fold<int>(0, (s, x) => s + x.estMinutes);
     final openCount = d.activities.where((x) => x.isOpen).length;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final color = courseColor(context, d.course.id);
+    final planned = d.activities.where((x) => x.origin != Origin.adaptive).toList();
+    final done = planned.where((x) => x.isDone).length;
+    final ratio = planned.isEmpty ? 0.0 : done / planned.length;
+
+    return PageList(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       children: [
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(d.course.kind.label, style: Theme.of(context).textTheme.labelMedium),
-                if (d.course.goal.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(d.course.goal, style: Theme.of(context).textTheme.titleMedium),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  isSelf
-                      ? (est.remainingMinutes == 0
-                          ? 'Everything in this plan is done.'
-                          : '${fmtMinutes(est.remainingMinutes)} left · ${_estimateShort(est, d.course.weeklyHours)}')
-                      : '$openCount open items',
+                Row(
+                  children: [
+                    IconBadge(
+                      icon: isSelf ? Icons.school_outlined : Icons.account_balance_outlined,
+                      color: color,
+                      size: 44,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d.course.kind.label.toUpperCase(),
+                              style: text.labelSmall
+                                  ?.copyWith(color: color, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                          if (d.course.goal.isNotEmpty)
+                            Text(d.course.goal, style: text.titleMedium)
+                          else
+                            Text(d.course.title, style: text.titleMedium),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: ProgressBar(value: ratio, color: color)),
+                    const SizedBox(width: 12),
+                    Text('${(ratio * 100).round()}%',
+                        style: text.labelLarge?.copyWith(color: color, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    StatTile(value: '$done/${planned.length}', label: 'done', color: color),
+                    if (isSelf)
+                      StatTile(value: fmtMinutes(est.remainingMinutes), label: 'left', color: color)
+                    else
+                      StatTile(value: '$openCount', label: 'open items', color: color),
+                    if (isSelf) StatTile(value: '${fmtHours(d.course.weeklyHours)} h', label: 'per week', color: color),
+                  ],
                 ),
                 if (isSelf) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  Text(
+                    est.remainingMinutes == 0
+                        ? 'Everything in this plan is done.'
+                        : _estimateShort(est, d.course.weeklyHours),
+                    style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () => _changeWeekly(d),
                     icon: const Icon(Icons.schedule),
@@ -315,50 +363,84 @@ class _CoursePageState extends State<CoursePage> {
         ),
         if (d.activities.isEmpty)
           InfoCard(
+            icon: Icons.inbox_outlined,
             title: 'Nothing here yet',
             body: isSelf
                 ? 'Use the menu → "Update plan from JSON" to add a plan.'
                 : 'Tap "Add item" to add a lab, assignment or exam with its due date.',
           ),
-        if (isSelf && est.thisWeek.isNotEmpty) ...[
-          SectionHeader('This week (${fmtMinutes(thisWeekMinutes)})'),
-          for (final a in est.thisWeek) _tile(context, a, now),
-        ],
-        for (final m in d.milestones) ...[
-          SectionHeader(m.title),
-          for (final a in sortedByPosition(d.activities.where((x) => x.milestoneId == m.id))) _tile(context, a, now),
-        ],
-        if (loose.isNotEmpty) ...[
-          SectionHeader(isSelf ? 'Other activities' : 'Items'),
-          for (final a in loose) _tile(context, a, now),
-        ],
+        if (isSelf && est.thisWeek.isNotEmpty)
+          _group(context, 'This week', est.thisWeek, now,
+              icon: Icons.date_range_outlined, trailing: fmtMinutes(thisWeekMinutes)),
+        for (final m in d.milestones)
+          _group(context, m.title, sortedByPosition(d.activities.where((x) => x.milestoneId == m.id)), now,
+              icon: Icons.flag_outlined, showCount: true),
+        if (loose.isNotEmpty)
+          _group(context, isSelf ? 'Other activities' : 'Items', loose, now, icon: Icons.list_alt_outlined),
+      ],
+    );
+  }
+
+  Widget _group(
+    BuildContext context,
+    String title,
+    List<Activity> items,
+    DateTime now, {
+    IconData? icon,
+    String? trailing,
+    bool showCount = false,
+  }) {
+    final done = items.where((a) => a.isDone).length;
+    final label = trailing ?? (showCount && items.isNotEmpty ? '$done/${items.length}' : null);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title,
+          icon: icon,
+          trailing: label == null ? null : MetaPill(label),
+        ),
+        if (items.isEmpty)
+          const SizedBox.shrink()
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(children: [for (final a in items) _tile(context, a, now)]),
+            ),
+          ),
       ],
     );
   }
 
   Widget _tile(BuildContext context, Activity a, DateTime now) {
-    final scheme = Theme.of(context).colorScheme;
     final due = a.dueAt;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        stateIcon(a.state),
-        color: a.isDone ? scheme.primary : (a.state == ActivityState.missed ? scheme.error : null),
-      ),
-      title: Text(a.title),
-      subtitle: Text([
+    final overdue = a.isOpen && due != null && due.isBefore(now);
+    return ActivityTile(
+      activity: a,
+      warn: overdue || a.state == ActivityState.missed,
+      subtitle: [
         a.kind.label,
         fmtMinutes(a.estMinutes),
         if (due != null) 'due ${describeDue(due, now)}',
         if (a.origin == Origin.adaptive) 'follow-up',
         if (a.state != ActivityState.notStarted) a.state.label.toLowerCase(),
-      ].join(' · ')),
+      ].join(' · '),
       trailing: a.isOpen
           ? PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.outline),
               onSelected: (v) => _activityMenu(v, a),
               itemBuilder: (context) => const [
-                PopupMenuItem(value: 'done', child: Text('Mark done')),
-                PopupMenuItem(value: 'missed', child: Text('I missed this')),
+                PopupMenuItem(
+                  value: 'done',
+                  child:
+                      ListTile(leading: Icon(Icons.check), title: Text('Mark done'), contentPadding: EdgeInsets.zero),
+                ),
+                PopupMenuItem(
+                  value: 'missed',
+                  child: ListTile(
+                      leading: Icon(Icons.event_busy), title: Text('I missed this'), contentPadding: EdgeInsets.zero),
+                ),
               ],
             )
           : null,
@@ -432,28 +514,36 @@ class _AddItemDialogState extends State<_AddItemDialog> {
               decoration: const InputDecoration(labelText: 'Title', hintText: 'Lab 4: SQL joins'),
             ),
             const SizedBox(height: 12),
-            DropdownButton<ActivityKind>(
-              value: _kind,
+            DropdownButtonFormField<ActivityKind>(
+              initialValue: _kind,
               isExpanded: true,
-              items: [for (final k in _kinds) DropdownMenuItem(value: k, child: Text(k.label))],
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: [
+                for (final k in _kinds)
+                  DropdownMenuItem(
+                    value: k,
+                    child: Row(
+                      children: [
+                        Icon(kindIcon(k), size: 18, color: kindColor(context, k.db)),
+                        const SizedBox(width: 10),
+                        Text(k.label),
+                      ],
+                    ),
+                  ),
+              ],
               onChanged: (k) => setState(() => _kind = k ?? _kind),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _minutes,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Minutes it takes'),
+              decoration: const InputDecoration(labelText: 'Minutes it takes', suffixText: 'min'),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: Text(due == null ? 'No due date' : 'Due ${fmtDateTime(due)}')),
-                TextButton.icon(
-                  onPressed: _pickDue,
-                  icon: const Icon(Icons.event),
-                  label: const Text('Pick date'),
-                ),
-              ],
+            OutlinedButton.icon(
+              onPressed: _pickDue,
+              icon: const Icon(Icons.event),
+              label: Text(due == null ? 'Pick a due date' : 'Due ${fmtDateTime(due)}'),
             ),
           ],
         ),

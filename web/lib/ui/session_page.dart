@@ -7,6 +7,7 @@ import '../logic/json_util.dart';
 import '../logic/prompts.dart';
 import '../logic/rules.dart';
 import '../models.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class _SessionData {
@@ -151,7 +152,8 @@ class _SessionPageState extends State<SessionPage> {
   Future<void> _applyAiReply(_SessionData d) async {
     final v = parseAiVerdict(_aiReply.text);
     if (v == null) {
-      showMessage(context, 'Could not read a verdict. The reply needs {"verdict": "pass" | "fail" | "uncertain", ...}.');
+      showMessage(
+          context, 'Could not read a verdict. The reply needs {"verdict": "pass" | "fail" | "uncertain", ...}.');
       return;
     }
     await _submit(d, verdict: v.verdict, evaluatedBy: 'ai', feedback: v.feedback, gap: v.gap);
@@ -232,7 +234,7 @@ class _SessionPageState extends State<SessionPage> {
       future: _future,
       title: 'Session',
       builder: (context, d) => Scaffold(
-        appBar: AppBar(title: Text(d.activity.title)),
+        appBar: AppBar(title: Text(d.activity.kind.label)),
         body: LayoutBuilder(
           builder: (context, constraints) {
             final work = _workColumn(context, d);
@@ -253,9 +255,9 @@ class _SessionPageState extends State<SessionPage> {
                 ],
               );
             }
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [...work, const Divider(height: 32), ...tutor],
+            return PageList(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [...work, const SizedBox(height: 20), ...tutor],
             );
           },
         ),
@@ -270,30 +272,68 @@ class _SessionPageState extends State<SessionPage> {
     final due = a.dueAt;
     final isPlainLesson = a.kind == ActivityKind.lesson && a.task.isEmpty;
 
+    final color = kindColor(context, a.kind.db);
+    final overdue = a.isOpen && due != null && due.isBefore(now);
+
     return [
+      Row(
+        children: [
+          IconBadge(icon: kindIcon(a.kind), color: color, size: 44),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(d.course.title.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(color: color, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                Text(a.title, style: Theme.of(context).textTheme.titleLarge),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          Chip(label: Text(d.course.title)),
-          Chip(label: Text(a.kind.label)),
-          Chip(label: Text(fmtMinutes(a.estMinutes))),
-          Chip(label: Text(a.state.label)),
-          if (due != null) Chip(label: Text('Due ${describeDue(due, now)}')),
+          MetaPill(a.kind.label, icon: kindIcon(a.kind), color: color),
+          MetaPill(fmtMinutes(a.estMinutes), icon: Icons.timer_outlined),
+          MetaPill(a.state.label, icon: stateIcon(a.state), color: a.isDone ? scheme.primary : null),
+          if (due != null)
+            MetaPill('Due ${describeDue(due, now)}',
+                icon: overdue ? Icons.warning_amber_rounded : Icons.event, color: overdue ? scheme.error : null),
         ],
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 16),
       if (a.note.isNotEmpty)
-        Card(
-          color: scheme.secondaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text('Why this: ${a.note}', style: TextStyle(color: scheme.onSecondaryContainer)),
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(14),
+            border: Border(left: BorderSide(color: scheme.secondary, width: 4)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.lightbulb_outline, size: 20, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Why this: ${a.note}', style: TextStyle(color: scheme.onSecondaryContainer)),
+              ),
+            ],
           ),
         ),
-      if (a.objective.isNotEmpty) TextBlock(title: 'Objective', text: a.objective),
+      if (a.objective.isNotEmpty) TextBlock(title: 'Objective', text: a.objective, icon: Icons.track_changes),
       if (a.content.isNotEmpty)
-        TextBlock(title: 'Lesson', text: a.content)
+        TextBlock(title: 'Lesson', text: a.content, icon: Icons.menu_book_outlined)
       else
         const InfoCard(
           icon: Icons.menu_book_outlined,
@@ -301,8 +341,8 @@ class _SessionPageState extends State<SessionPage> {
           body: 'In the tutor panel choose "Write the lesson", copy the prompt, then save the answer '
               'with "Save as lesson".',
         ),
-      if (a.task.isNotEmpty) TextBlock(title: 'Task', text: a.task),
-      if (a.criteria.isNotEmpty) TextBlock(title: 'How it is checked', text: a.criteria),
+      if (a.task.isNotEmpty) TextBlock(title: 'Task', text: a.task, icon: Icons.assignment_outlined),
+      if (a.criteria.isNotEmpty) TextBlock(title: 'How it is checked', text: a.criteria, icon: Icons.rule),
       if (isPlainLesson && !a.isDone)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -314,114 +354,127 @@ class _SessionPageState extends State<SessionPage> {
         ),
       if (!isPlainLesson) ..._attemptSection(context, d),
       if (_result != null) _resultCard(context, _result!),
-      SectionHeader('Attempts (${d.attempts.length})'),
-      if (d.attempts.isEmpty) const Text('No attempts yet.'),
-      for (final t in d.attempts)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(verdictIcon(t.verdict)),
-          title: Text('${t.verdict.label} · ${t.help.label} · ${t.evaluatedBy == 'ai' ? 'AI' : 'self'} check'),
-          subtitle: Text([
-            if (t.createdAt != null) fmtDateTime(t.createdAt!),
-            if (t.feedback.isNotEmpty) t.feedback,
-            if (t.gap.isNotEmpty) 'Gap: ${t.gap}',
-          ].join('\n')),
+      SectionHeader('Attempts', icon: Icons.history, trailing: MetaPill('${d.attempts.length}')),
+      if (d.attempts.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text('No attempts yet.', style: TextStyle(color: scheme.onSurfaceVariant)),
+        )
+      else
+        Card(
+          child: Column(
+            children: [
+              for (final t in d.attempts)
+                ListTile(
+                  leading: IconBadge(icon: verdictIcon(t.verdict), color: verdictColor(context, t.verdict)),
+                  title: Text('${t.verdict.label} · ${t.help.label} · ${t.evaluatedBy == 'ai' ? 'AI' : 'self'} check',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text([
+                    if (t.createdAt != null) fmtDateTime(t.createdAt!),
+                    if (t.feedback.isNotEmpty) t.feedback,
+                    if (t.gap.isNotEmpty) 'Gap: ${t.gap}',
+                  ].join('\n')),
+                ),
+            ],
+          ),
         ),
     ];
   }
 
   List<Widget> _attemptSection(BuildContext context, _SessionData d) {
+    final scheme = Theme.of(context).colorScheme;
     return [
-      const SectionHeader('Your answer'),
-      TextField(
-        controller: _answer,
-        minLines: 6,
-        maxLines: 20,
-        style: monoStyle,
-        decoration: const InputDecoration(
-          hintText: 'Paste your code and its output, or explain in your own words.',
-        ),
-      ),
-      const SizedBox(height: 8),
-      Row(
+      PanelCard(
+        title: 'Your answer',
+        subtitle: 'Paste your code and its output, or explain in your own words.',
+        icon: Icons.edit_outlined,
         children: [
-          const Text('Help used for this attempt: '),
-          DropdownButton<HelpLevel>(
-            value: _helpUsed,
+          TextField(
+            controller: _answer,
+            minLines: 6,
+            maxLines: 20,
+            style: monoStyle,
+            decoration: const InputDecoration(hintText: 'Your answer…'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<HelpLevel>(
+            initialValue: _helpUsed,
+            key: ValueKey(_helpUsed),
+            decoration: const InputDecoration(labelText: 'Help used for this attempt'),
             items: [for (final h in HelpLevel.values) DropdownMenuItem(value: h, child: Text(h.label))],
             onChanged: (h) => setState(() => _helpUsed = h ?? _helpUsed),
           ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _helpUsed.isSupported
+                      ? 'With this much help, a pass is recorded as supported and a fresh check follows.'
+                      : 'No help or hints only: a pass counts as doing it on your own.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      Text(
-        _helpUsed.isSupported
-            ? 'With this much help, a pass is recorded as supported and a fresh check follows.'
-            : 'No help or hints only: a pass counts as doing it on your own.',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-      const SectionHeader('Check your work'),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('With AI', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => _copyEvaluationPrompt(d),
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy evaluation prompt'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _aiReply,
-                minLines: 2,
-                maxLines: 6,
-                style: monoStyle,
-                decoration: const InputDecoration(hintText: 'Paste the AI\'s JSON reply here'),
-              ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _busy ? null : () => _applyAiReply(d),
-                child: const Text('Apply AI result'),
-              ),
-            ],
+      const SectionHeader('Check your work', icon: Icons.fact_check_outlined),
+      PanelCard(
+        title: 'With AI',
+        subtitle: 'Copy the prompt, paste it into your AI, then paste its JSON reply here.',
+        icon: Icons.auto_awesome_outlined,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => _copyEvaluationPrompt(d),
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy evaluation prompt'),
           ),
-        ),
-      ),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Myself', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              SegmentedButton<Verdict>(
-                segments: [
-                  for (final v in Verdict.values) ButtonSegment(value: v, label: Text(v.label)),
-                ],
-                selected: {_selfVerdict},
-                onSelectionChanged: (s) => setState(() => _selfVerdict = s.first),
-              ),
-              if (_selfVerdict == Verdict.fail) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _gap,
-                  decoration: const InputDecoration(labelText: 'What was missing? (a few words)'),
-                ),
-              ],
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _busy
-                    ? null
-                    : () => _submit(d, verdict: _selfVerdict, evaluatedBy: 'self', gap: _gap.text.trim()),
-                child: const Text('Submit'),
-              ),
-            ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _aiReply,
+            minLines: 2,
+            maxLines: 6,
+            style: monoStyle,
+            decoration: const InputDecoration(hintText: 'Paste the AI\'s JSON reply here'),
           ),
-        ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _busy ? null : () => _applyAiReply(d),
+            icon: const Icon(Icons.done_all),
+            label: const Text('Apply AI result'),
+          ),
+        ],
+      ),
+      PanelCard(
+        title: 'Myself',
+        subtitle: 'Judge your own answer honestly.',
+        icon: Icons.person_outline,
+        children: [
+          SegmentedButton<Verdict>(
+            segments: [
+              for (final v in Verdict.values) ButtonSegment(value: v, label: Text(v.label), icon: Icon(verdictIcon(v))),
+            ],
+            selected: {_selfVerdict},
+            onSelectionChanged: (s) => setState(() => _selfVerdict = s.first),
+          ),
+          if (_selfVerdict == Verdict.fail) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _gap,
+              decoration: const InputDecoration(labelText: 'What was missing? (a few words)'),
+            ),
+          ],
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed:
+                _busy ? null : () => _submit(d, verdict: _selfVerdict, evaluatedBy: 'self', gap: _gap.text.trim()),
+            child: const Text('Submit'),
+          ),
+        ],
       ),
     ];
   }
@@ -451,21 +504,39 @@ class _SessionPageState extends State<SessionPage> {
       }
     }
     final target = r.followUp ?? r.next;
-    return Card(
-      color: r.verdict == Verdict.pass ? scheme.primaryContainer : scheme.tertiaryContainer,
+    final color = r.duplicate ? scheme.outline : verdictColor(context, r.verdict);
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final l in lines)
-              Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(l)),
+            Row(
+              children: [
+                IconBadge(icon: verdictIcon(r.verdict), color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    lines.first,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final l in lines.skip(1)) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(l)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
-                if (target != null)
-                  FilledButton(onPressed: () => _goTo(target), child: Text('Start: ${target.title}')),
+                if (target != null) FilledButton(onPressed: () => _goTo(target), child: Text('Start: ${target.title}')),
                 TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back')),
               ],
             ),
@@ -476,66 +547,82 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   List<Widget> _tutorColumn(BuildContext context, _SessionData d) {
+    final scheme = Theme.of(context).colorScheme;
     return [
-      Text('Tutor', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 4),
-      const Text('The prompt includes this lesson and your current answer.'),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _question,
-        minLines: 1,
-        maxLines: 4,
-        decoration: const InputDecoration(labelText: 'What are you stuck on? (optional)'),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      PanelCard(
+        title: 'Tutor',
+        subtitle: 'The prompt includes this lesson and your current answer.',
+        icon: Icons.forum_outlined,
         children: [
-          for (final h in TutorHelp.values)
-            ChoiceChip(
-              label: Text(h.label),
-              selected: _helpType == h,
-              onSelected: (_) => setState(() => _helpType = h),
-            ),
+          TextField(
+            controller: _question,
+            minLines: 1,
+            maxLines: 4,
+            decoration: const InputDecoration(labelText: 'What are you stuck on? (optional)'),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final h in TutorHelp.values)
+                ChoiceChip(
+                  label: Text(h.label),
+                  selected: _helpType == h,
+                  onSelected: (_) => setState(() => _helpType = h),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => _copyTutorPrompt(d),
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy prompt'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _response,
+            minLines: 3,
+            maxLines: 12,
+            decoration: const InputDecoration(labelText: 'Paste the AI\'s answer'),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () => _saveExchange(d),
+                icon: const Icon(Icons.bookmark_add_outlined),
+                label: const Text('Save to history'),
+              ),
+              if (_helpType == TutorHelp.lesson)
+                OutlinedButton.icon(
+                  onPressed: () => _saveExchange(d, asLesson: true),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Save as lesson'),
+                ),
+            ],
+          ),
         ],
       ),
-      const SizedBox(height: 8),
-      FilledButton.icon(
-        onPressed: () => _copyTutorPrompt(d),
-        icon: const Icon(Icons.copy),
-        label: const Text('Copy prompt'),
-      ),
-      const SizedBox(height: 16),
-      TextField(
-        controller: _response,
-        minLines: 3,
-        maxLines: 12,
-        decoration: const InputDecoration(labelText: 'Paste the AI\'s answer'),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          FilledButton.tonal(onPressed: () => _saveExchange(d), child: const Text('Save to history')),
-          if (_helpType == TutorHelp.lesson)
-            OutlinedButton(
-              onPressed: () => _saveExchange(d, asLesson: true),
-              child: const Text('Save as lesson'),
-            ),
-        ],
-      ),
-      SectionHeader('History (${d.exchanges.length})'),
-      if (d.exchanges.isEmpty) const Text('Nothing saved yet.'),
+      SectionHeader('History', icon: Icons.history, trailing: MetaPill('${d.exchanges.length}')),
+      if (d.exchanges.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text('Nothing saved yet.', style: TextStyle(color: scheme.onSurfaceVariant)),
+        ),
       for (final x in d.exchanges)
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: Text('${x.help.label}: ${x.question.isEmpty ? '(no question)' : x.question}'),
-          subtitle: x.createdAt == null ? null : Text(fmtDateTime(x.createdAt!)),
-          childrenPadding: const EdgeInsets.only(bottom: 12),
-          expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          children: [SelectableText(x.response)],
+        Card(
+          child: ExpansionTile(
+            leading: IconBadge(icon: Icons.chat_bubble_outline, color: scheme.primary, size: 36),
+            title: Text('${x.help.label}: ${x.question.isEmpty ? '(no question)' : x.question}',
+                maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: x.createdAt == null ? null : Text(fmtDateTime(x.createdAt!)),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            children: [SelectableText(x.response, style: const TextStyle(height: 1.5))],
+          ),
         ),
     ];
   }

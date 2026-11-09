@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/repo.dart';
 import '../logic/format.dart';
 import '../models.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class _ProgressData {
@@ -60,7 +61,7 @@ class _ProgressPageState extends State<ProgressPage> {
             for (final t in evidence)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(verdictIcon(t.verdict)),
+                leading: IconBadge(icon: verdictIcon(t.verdict), color: verdictColor(context, t.verdict)),
                 title: Text(byId[t.activityId]?.title ?? ''),
                 subtitle: Text([
                   [
@@ -86,14 +87,38 @@ class _ProgressPageState extends State<ProgressPage> {
         future: _future,
         builder: (context, d) {
           if (d.courses.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: InfoCard(title: 'No courses yet', body: 'Progress shows up here once you start a course.'),
+            return const PageList(
+              children: [
+                InfoCard(
+                  icon: Icons.insights_outlined,
+                  title: 'No courses yet',
+                  body: 'Progress shows up here once you start a course.',
+                ),
+              ],
             );
           }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [for (final c in d.courses) _courseCard(context, c, d)],
+          final total = d.activities.where((a) => a.origin != Origin.adaptive).length;
+          final done = d.activities.where((a) => a.origin != Origin.adaptive && a.isDone).length;
+          final shown = d.skills.where((s) => s.status == SkillStatus.demonstrated).length;
+          final passes = d.attempts.where((t) => t.verdict == Verdict.pass).length;
+          return PageList(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: StatTile(value: '$done/$total', label: 'activities done')),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: StatTile(value: '$shown', label: 'skills shown', color: const Color(0xFF059669)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: StatTile(value: '$passes', label: 'passed checks', color: const Color(0xFFD97706)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              for (final c in d.courses) _courseCard(context, c, d),
+            ],
           );
         },
       ),
@@ -101,34 +126,134 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   Widget _courseCard(BuildContext context, Course c, _ProgressData d) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final color = courseColor(context, c.id);
     final acts = d.activities.where((a) => a.courseId == c.id && a.origin != Origin.adaptive).toList();
     final done = acts.where((a) => a.isDone).length;
     final skills = d.skills.where((s) => s.courseId == c.id).toList();
     int count(SkillStatus s) => skills.where((x) => x.status == s).length;
+    const green = Color(0xFF059669);
+    const amber = Color(0xFFD97706);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(c.title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text('Activities completed: $done of ${acts.length}'),
-            if (skills.isNotEmpty)
-              Text(
-                'Skills: ${count(SkillStatus.demonstrated)} demonstrated · '
-                '${count(SkillStatus.practicing)} practicing · ${count(SkillStatus.unassessed)} unassessed',
+            Row(
+              children: [
+                IconBadge(
+                  icon: c.kind == CourseKind.university ? Icons.account_balance_outlined : Icons.school_outlined,
+                  color: color,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(c.title, style: text.titleLarge)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Activities', style: text.labelLarge),
+                const Spacer(),
+                Text('$done of ${acts.length}', style: text.labelLarge?.copyWith(color: color)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ProgressBar(value: acts.isEmpty ? 0 : done / acts.length, color: color),
+            if (skills.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text('Skills', style: text.labelLarge),
+                  const Spacer(),
+                  Text('${count(SkillStatus.demonstrated)} of ${skills.length} demonstrated',
+                      style: text.labelLarge?.copyWith(color: green)),
+                ],
               ),
-            const SizedBox(height: 8),
-            if (skills.isEmpty) const Text('This course has no skills defined.'),
+              const SizedBox(height: 6),
+              _SkillBar(
+                demonstrated: count(SkillStatus.demonstrated),
+                practicing: count(SkillStatus.practicing),
+                total: skills.length,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 14,
+                runSpacing: 4,
+                children: [
+                  _legend(context, green, '${count(SkillStatus.demonstrated)} demonstrated'),
+                  _legend(context, amber, '${count(SkillStatus.practicing)} practicing'),
+                  _legend(context, scheme.outlineVariant, '${count(SkillStatus.unassessed)} unassessed'),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (skills.isEmpty)
+              Text('This course has no skills defined.', style: TextStyle(color: scheme.onSurfaceVariant)),
             for (final s in skills)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(s.name),
-                subtitle: s.description.isEmpty ? null : Text(s.description),
-                trailing: SkillStatusChip(s.status),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
                 onTap: () => _showEvidence(s, d),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(s.name, style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                            if (s.description.isNotEmpty)
+                              Text(s.description,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SkillStatusChip(s.status),
+                    ],
+                  ),
+                ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _legend(BuildContext context, Color color, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      );
+}
+
+/// A stacked bar: demonstrated (green), practicing (amber), the rest unassessed.
+class _SkillBar extends StatelessWidget {
+  const _SkillBar({required this.demonstrated, required this.practicing, required this.total});
+
+  final int demonstrated;
+  final int practicing;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final rest = total - demonstrated - practicing;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 8,
+        child: Row(
+          children: [
+            if (demonstrated > 0) Expanded(flex: demonstrated, child: Container(color: const Color(0xFF059669))),
+            if (practicing > 0) Expanded(flex: practicing, child: Container(color: const Color(0xFFD97706))),
+            if (rest > 0) Expanded(flex: rest, child: Container(color: Theme.of(context).colorScheme.outlineVariant)),
           ],
         ),
       ),

@@ -4,6 +4,7 @@ import '../data/repo.dart';
 import '../logic/format.dart';
 import '../logic/prompts.dart';
 import '../models.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class _TutorData {
@@ -96,8 +97,8 @@ class _TutorPageState extends State<TutorPage> {
   }
 
   Future<void> _toPractice(TutorExchange x, List<Course> courses) async {
-    final c = _course(courses, x.courseId) ??
-        await pickCourse(context, courses, title: 'Add practice to which course?');
+    final c =
+        _course(courses, x.courseId) ?? await pickCourse(context, courses, title: 'Add practice to which course?');
     if (c == null) return;
     final q = x.question.trim();
     try {
@@ -121,99 +122,185 @@ class _TutorPageState extends State<TutorPage> {
       appBar: AppBar(title: const Text('Tutor')),
       body: Loader<_TutorData>(
         future: _future,
-        builder: (context, d) => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const Text('Bring any question. You can connect it to a course afterwards.'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _question,
-                  minLines: 3,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    labelText: 'Your question',
-                    hintText: 'e.g. Why does my C program return the wrong maximum? (paste the code)',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final h in _helps)
-                      ChoiceChip(
-                        label: Text(h.label),
-                        selected: _help == h,
-                        onSelected: (_) => setState(() => _help = h),
-                      ),
-                    DropdownButton<String?>(
-                      value: _courseId,
-                      hint: const Text('No course'),
-                      items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('No course')),
-                        for (final c in d.courses) DropdownMenuItem<String?>(value: c.id, child: Text(c.title)),
-                      ],
-                      onChanged: (v) => setState(() => _courseId = v),
+        builder: (context, d) {
+          final scheme = Theme.of(context).colorScheme;
+          return PageList(
+            children: [
+              _StepCard(
+                step: 1,
+                title: 'Ask your question',
+                subtitle: 'Bring any question. You can connect it to a course afterwards.',
+                children: [
+                  TextField(
+                    controller: _question,
+                    minLines: 3,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Why does my C program return the wrong maximum? (paste the code)',
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final h in _helps)
+                        ChoiceChip(
+                          label: Text(h.label),
+                          selected: _help == h,
+                          onSelected: (_) => setState(() => _help = h),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _courseId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Course (optional)',
+                      prefixIcon: Icon(Icons.school_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('No course')),
+                      for (final c in d.courses)
+                        DropdownMenuItem<String?>(
+                          value: c.id,
+                          child: Text(c.title, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _courseId = v),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => _copy(d),
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copy prompt'),
+                  ),
+                ],
+              ),
+              _StepCard(
+                step: 2,
+                title: 'Paste the answer',
+                subtitle: 'Paste the prompt into Claude or ChatGPT, then bring the reply back here.',
+                children: [
+                  TextField(
+                    controller: _response,
+                    minLines: 3,
+                    maxLines: 12,
+                    decoration: const InputDecoration(hintText: 'The AI\'s answer…'),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.bookmark_add_outlined),
+                    label: const Text('Save'),
+                  ),
+                ],
+              ),
+              SectionHeader('Past questions', icon: Icons.history, trailing: MetaPill('${d.exchanges.length}')),
+              if (d.exchanges.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('Nothing saved yet.', style: TextStyle(color: scheme.onSurfaceVariant)),
                 ),
-                const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: () => _copy(d),
-                  icon: const Icon(Icons.copy),
-                  label: const Text('Copy prompt'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _response,
-                  minLines: 3,
-                  maxLines: 12,
-                  decoration: const InputDecoration(labelText: 'Paste the AI\'s answer'),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.tonal(onPressed: _save, child: const Text('Save')),
-                ),
-                SectionHeader('Past questions (${d.exchanges.length})'),
-                if (d.exchanges.isEmpty) const Text('Nothing saved yet.'),
-                for (final x in d.exchanges) _exchangeTile(x, d),
-              ],
-            ),
-          ),
-        ),
+              for (final x in d.exchanges) _exchangeTile(x, d),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _exchangeTile(TutorExchange x, _TutorData d) {
     final course = _course(d.courses, x.courseId);
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      title: Text(x.question.isEmpty ? '(no question)' : x.question, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Text([
-        x.help.label,
-        if (course != null) course.title,
-        if (x.createdAt != null) fmtDateTime(x.createdAt!),
-      ].join(' · ')),
-      childrenPadding: const EdgeInsets.only(bottom: 12),
-      expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SelectableText(x.response),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
+    final color = course == null ? Theme.of(context).colorScheme.primary : courseColor(context, course.id);
+    return Card(
+      child: ExpansionTile(
+        leading: IconBadge(icon: Icons.chat_bubble_outline, color: color, size: 36),
+        title: Text(
+          x.question.isEmpty ? '(no question)' : x.question,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text([
+          x.help.label,
+          if (course != null) course.title,
+          if (x.createdAt != null) fmtDateTime(x.createdAt!),
+        ].join(' · ')),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(x.response, style: const TextStyle(height: 1.5)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (course == null)
+                OutlinedButton.icon(
+                  onPressed: () => _attach(x, d.courses),
+                  icon: const Icon(Icons.link),
+                  label: const Text('Attach to a course'),
+                ),
+              OutlinedButton.icon(
+                onPressed: () => _toPractice(x, d.courses),
+                icon: const Icon(Icons.fitness_center),
+                label: const Text('Turn into practice'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A numbered step in a copy-paste flow.
+class _StepCard extends StatelessWidget {
+  const _StepCard({required this.step, required this.title, required this.subtitle, required this.children});
+
+  final int step;
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (course == null)
-              OutlinedButton(onPressed: () => _attach(x, d.courses), child: const Text('Attach to a course')),
-            OutlinedButton(onPressed: () => _toPractice(x, d.courses), child: const Text('Turn into practice')),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: scheme.primary,
+                  child: Text('$step',
+                      style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: text.titleMedium),
+                      Text(subtitle, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...children,
           ],
         ),
-      ],
+      ),
     );
   }
 }

@@ -46,6 +46,21 @@ class _HomeShellState extends State<HomeShell> {
                   selectedIndex: _index,
                   onDestinationSelected: _select,
                   labelType: NavigationRailLabelType.all,
+                  groupAlignment: -0.85,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 16),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.tertiary],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.onPrimary),
+                    ),
+                  ),
                   destinations: [
                     for (final d in _destinations)
                       NavigationRailDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: Text(d.$3)),
