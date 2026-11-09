@@ -9,6 +9,7 @@ import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.load();
   if (!AppConfig.isConfigured) {
     runApp(const _MissingConfigApp());
     return;
@@ -63,7 +64,7 @@ class _MissingConfigApp extends StatelessWidget {
               child: const Text(
                 'Supabase is not configured.\n\n'
                 '1. Copy env.example.json to env.json and fill in your project URL and anon key.\n'
-                '2. Run: flutter run --dart-define-from-file=env.json\n'
+                '2. Run: flutter run\n'
                 '   (add -d chrome for web; omit it to pick your phone/emulator).',
               ),
             ),

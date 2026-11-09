@@ -49,16 +49,9 @@ class _HomeShellState extends State<HomeShell> {
                   groupAlignment: -0.85,
                   leading: Padding(
                     padding: const EdgeInsets.only(top: 12, bottom: 16),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.tertiary],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.onPrimary),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.asset('assets/icon/logo.png', width: 44, height: 44),
                     ),
                   ),
                   destinations: [

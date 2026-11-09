@@ -77,8 +77,8 @@ class _LoginPageState extends State<LoginPage> {
                       child: Container(
                         width: 72,
                         height: 72,
+                        clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary]),
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
@@ -88,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ],
                         ),
-                        child: Icon(Icons.school_rounded, color: scheme.onPrimary, size: 38),
+                        child: Image.asset('assets/icon/logo.png'),
                       ),
                     ),
                     const SizedBox(height: 20),

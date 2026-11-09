@@ -15,6 +15,37 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/logo.png
+    # Supabase URL + anon key (git-ignored; copy env.example.json). The build fails if it's missing.
+    - env.json
+
+# App icon for every platform. Regenerate after changing assets/icon/*.png:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: assets/icon/icon.png
+  android: true
+  adaptive_icon_background: "#4F46E5"
+  adaptive_icon_foreground: assets/icon/foreground.png
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#4F46E5"
+    theme_color: "#4F46E5"
+
+# Splash screen shown while the app starts. Regenerate after changes:
+#   dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#4F46E5"
+  image: assets/icon/foreground.png
+  android_12:
+    color: "#4F46E5"
+    image: assets/icon/foreground.png
+  web: true

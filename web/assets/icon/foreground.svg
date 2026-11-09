@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#3730A3"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E0E7FF"/>
+    </linearGradient>
+  </defs>
+  
+  <g id="mark" transform="translate(512 532) scale(0.62) translate(-512 -532)">
+    <!-- mortarboard -->
+    <path d="M512 232 L812 352 L512 472 L212 352 Z" fill="#FFFFFF"/>
+    <path d="M362 412 L362 520 Q512 590 662 520 L662 412 L512 472 Z" fill="#C7D2FE"/>
+    <path d="M770 370 L770 500" stroke="#FBBF24" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="770" cy="512" r="22" fill="#FBBF24"/>
+    <!-- open book -->
+    <path d="M512 640 Q400 584 232 600 L232 792 Q400 776 512 832 Z" fill="url(#page)"/>
+    <path d="M512 640 Q624 584 792 600 L792 792 Q624 776 512 832 Z" fill="url(#page)"/>
+    <path d="M512 640 L512 832" stroke="#6366F1" stroke-width="10"/>
+  </g>
+</svg>
